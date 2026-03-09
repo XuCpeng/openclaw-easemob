@@ -37,6 +37,7 @@ interface PluginAPI {
   };
   registerHttpRoute: (route: {
     path: string;
+    auth: "gateway" | "plugin";
     handler: (req: HttpRequest, res: HttpResponse) => Promise<void>;
   }) => void;
   registerChannel: (params: { plugin: typeof easemobPlugin }) => void;
@@ -62,6 +63,7 @@ const plugin = {
     // Register webhook endpoint for receiving messages
     api.registerHttpRoute({
       path: "/webhooks/easemob",
+      auth: "plugin",
       handler: async (req: HttpRequest, res: HttpResponse) => {
         // Only accept POST requests
         if (req.method !== "POST") {
