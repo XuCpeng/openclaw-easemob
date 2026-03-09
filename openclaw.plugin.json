@@ -1,0 +1,9 @@
+{
+  "id": "easemob",
+  "channels": ["easemob"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

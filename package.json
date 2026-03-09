@@ -1,0 +1,63 @@
+{
+  "name": "@xu-cpeng/easemob",
+  "version": "1.0.0",
+  "description": "Easemob (环信) channel plugin for OpenClaw - A personal AI agent supporting IM integration",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/**/*",
+    "openclaw.plugin.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "easemob",
+    "环信",
+    "im",
+    "chat",
+    "channel"
+  ],
+  "author": "XuCpeng",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/XuCpeng/openclaw-easemob.git"
+  },
+  "bugs": {
+    "url": "https://github.com/XuCpeng/openclaw-easemob/issues"
+  },
+  "homepage": "https://github.com/XuCpeng/openclaw-easemob#readme",
+  "dependencies": {
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2",
+    "@types/node": "^22.13.9"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.3.0"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
