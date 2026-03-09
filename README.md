@@ -1,6 +1,6 @@
 # OpenClaw Easemob Plugin
 
-[![npm version](https://badge.fury.io/js/@xu-cpeng%2Feasemob.svg)](https://www.npmjs.com/package/@xu-cpeng/easemob)
+[![npm version](https://badge.fury.io/js/@saber3555%2Feasemob.svg)](https://www.npmjs.com/package/@saber3555/easemob)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 [OpenClaw](https://openclaw.ai) 的 **环信IM (Easemob)** 通道插件，让你的 AI 代理可以通过环信平台与用户聊天。
@@ -11,7 +11,7 @@
 
 ```bash
 # 1. 安装插件
-openclaw plugins install @xu-cpeng/easemob
+openclaw plugins install @saber3555/easemob
 
 # 2. 配置插件（按提示输入环信凭据）
 openclaw config
@@ -35,7 +35,7 @@ openclaw config
 ## 安装
 
 ```bash
-openclaw plugins install @xu-cpeng/easemob
+openclaw plugins install @saber3555/easemob
 ```
 
 ## 快速开始
@@ -160,16 +160,16 @@ git clone https://github.com/XuCpeng/openclaw-easemob.git
 cd openclaw-easemob
 
 # 安装依赖
-npm install
+pnpm install
 
 # 构建
-npm run build
+pnpm run build
 
 # 本地安装到 OpenClaw
 openclaw plugins install ./
 
 # 开发模式（自动重编译）
-npm run dev
+pnpm run dev
 ```
 
 ## 常见问题
