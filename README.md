@@ -223,6 +223,7 @@ A: 在 `accounts` 对象中添加多个账号配置:
 - [OpenClaw 官方文档](https://docs.openclaw.ai/channels)
 - [环信官方文档](https://docs.easemob.com/)
 - [OpenClaw GitHub](https://github.com/openclaw/openclaw)
+- [参考项目](https://github.com/dujiepeng/openclaw)
 
 ## 贡献
 
