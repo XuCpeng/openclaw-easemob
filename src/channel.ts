@@ -83,8 +83,18 @@ function getAccount(
   const accounts = easemobCfg?.accounts || {};
 
   if (accountId) {
-    // If accountId is specified, only return if it exists
-    return accounts[accountId] ?? null;
+    // First try to find by key (e.g., "default")
+    if (accounts[accountId]) {
+      return accounts[accountId];
+    }
+    // Then try to find by accountId field value (e.g., "xcp_claw_test")
+    const matched = Object.values(accounts).find(
+      (acc) => acc?.accountId === accountId
+    );
+    if (matched) {
+      return matched;
+    }
+    return null;
   }
 
   // If no accountId specified, return the first available account

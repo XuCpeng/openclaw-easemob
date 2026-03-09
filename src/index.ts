@@ -5,7 +5,7 @@
  * It registers the HTTP webhook route and the channel plugin with OpenClaw.
  */
 
-import { easemobPlugin, handleEasemobWebhook } from "./channel.js";
+import { easemobPlugin } from "./channel.js";
 import type { EasemobWebhookPayload, EasemobAccountConfig } from "./types.js";
 
 /** HTTP request object */
@@ -32,6 +32,18 @@ interface PluginAPI {
     channels?: {
       easemob?: {
         accounts?: Record<string, EasemobAccountConfig>;
+      };
+    };
+  };
+  runtime: {
+    channel: {
+      reply: {
+        finalizeInboundContext: (ctx: any) => any;
+        dispatchReplyFromConfig: (params: {
+          cfg: any;
+          ctx: any;
+          dispatcher: any;
+        }) => Promise<void>;
       };
     };
   };
@@ -79,9 +91,7 @@ const plugin = {
             body += chunk;
           }
 
-          if (api.logger.debug) {
-            api.logger.debug(`Easemob webhook received: ${body}`);
-          }
+          api.logger.info(`Easemob webhook received: ${body}`);
 
           // Parse JSON payload
           let data: EasemobWebhookPayload;
@@ -94,52 +104,123 @@ const plugin = {
             return;
           }
 
-          // Process the webhook
-          const result = await handleEasemobWebhook(
-            data,
-            api.config,
-            // Cast to any because the ChannelAPI interface has additional OpenClaw-specific methods
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            api as any
+          const eventType = data.eventType || data.call_back_type;
+          const chatType = data.chat_type;
+          const from = data.from;
+          const to = data.to;
+
+          // Only handle direct chat messages
+          if (chatType !== "chat" && chatType !== "direct") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ status: "ignored", reason: "not chat" }));
+            return;
+          }
+
+          if (eventType !== "chat" && eventType !== "receive_message") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ status: "ignored", reason: "not message event" }));
+            return;
+          }
+
+          const cfg = api.config;
+          const accounts = (cfg.channels?.easemob as any)?.accounts || {};
+          const matchedAccount = Object.values(accounts).find(
+            (acc: any) => acc?.accountId === to
           );
 
-          // Send replies if message was handled
-          if (result.handled && result.replies.length > 0) {
-            const to = data.from;
-            const accountId = data.to;
+          if (!matchedAccount) {
+            api.logger.info(`Easemob ignored: recipient "${to}" not configured`);
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ status: "ignored", reason: "account not configured" }));
+            return;
+          }
 
-            const easemobCfg = api.config.channels?.easemob;
-            const accounts = easemobCfg?.accounts || {};
-            const matchedAccount = Object.values(accounts).find(
-              (acc) => acc?.accountId === accountId
+          const text = data.payload?.bodies?.[0]?.msg;
+
+          if (!text || !from) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ status: "ignored", reason: "no text or from" }));
+            return;
+          }
+
+          api.logger.info(`Easemob processing message from ${from}: ${text}`);
+
+          try {
+            // 1. 构造并标准化上下文
+            const rawCtx = {
+              From: from,
+              To: to,
+              Body: text,
+              ChatType: "direct" as const,
+              MessageSid: data.msg_id,
+              Surface: "easemob",
+              Provider: "easemob",
+              WasMentioned: true,
+              raw: data,
+            };
+            const finalizedCtx = api.runtime.channel.reply.finalizeInboundContext(rawCtx);
+
+            // 补丁：手动确保 SessionKey 存在
+            if (!finalizedCtx.SessionKey) {
+              finalizedCtx.SessionKey = `agent:main:easemob:direct:${from.toLowerCase()}`;
+            }
+
+            api.logger.info(
+              `Easemob context: SessionKey=${finalizedCtx.SessionKey}, AccountId=${finalizedCtx.AccountId}`,
             );
 
-            if (to && accountId && matchedAccount) {
-              for (const replyText of result.replies) {
-                try {
-                  await easemobPlugin.outbound.sendText({
-                    to,
-                    text: replyText,
-                    accountId,
-                    cfg: api.config,
-                  });
-                  api.logger.info(`Easemob reply sent to ${to}`);
-                } catch (sendErr) {
-                  api.logger.error(`Easemob reply failed: ${sendErr}`);
-                }
-              }
-            } else {
-              api.logger.warn(`Easemob: Could not send reply - account not found for ${accountId}`);
+            // 2. 收集 AI 所有的回复片段
+            const fullReplyPayloads: any[] = [];
+
+            // 3. 运行 AI 引擎
+            await api.runtime.channel.reply.dispatchReplyFromConfig({
+              cfg,
+              ctx: finalizedCtx,
+              // 自定义分发器：只收集结果，不立即发送
+              dispatcher: {
+                sendFinalReply: (payload: any) => {
+                  fullReplyPayloads.push(payload);
+                  return true;
+                },
+                sendBlockReply: (payload: any) => {
+                  // 累加流式块到结果中
+                  fullReplyPayloads.push(payload);
+                  return true;
+                },
+                sendToolResult: () => true,
+                waitForIdle: async () => {},
+                getQueuedCounts: () => ({ final: 0, block: 0, tool: 0 }),
+              } as any,
+            });
+
+            // 4. 一次性合并发送所有收集到的文本
+            const combinedText = fullReplyPayloads
+              .map((p) => p.text)
+              .filter(Boolean)
+              .join("\n\n")
+              .trim();
+
+            if (combinedText) {
+              api.logger.info(`Easemob sending combined reply to ${from}: ${combinedText}`);
+              // 使用 to (xcp_claw_test) 作为 accountId，getAccount 会通过字段值查找
+              await (easemobPlugin as any).outbound.sendText({
+                to: from,
+                text: combinedText,
+                accountId: to,
+                cfg,
+              });
             }
+
+            api.logger.info(`Easemob processing completed.`);
+          } catch (flowErr) {
+            api.logger.error(
+              `Easemob flow error: ${flowErr instanceof Error ? flowErr.stack : String(flowErr)}`,
+            );
           }
 
           // Return success response
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({
-            status: "ok",
-            handled: result.handled,
-            replyCount: result.replies.length,
-          }));
+          res.end(JSON.stringify({ status: "ok" }));
         } catch (err) {
           api.logger.error(`Easemob webhook error: ${err}`);
           res.writeHead(500, { "Content-Type": "application/json" });
@@ -160,7 +241,7 @@ const plugin = {
 
 export default plugin;
 
-export { easemobPlugin, handleEasemobWebhook } from "./channel.js";
+export { easemobPlugin } from "./channel.js";
 export type {
   EasemobAccountConfig,
   EasemobConfig,
