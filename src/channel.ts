@@ -1,13 +1,80 @@
 /**
  * Easemob Channel Plugin
+ *
+ * OpenClaw Channel Plugin for Easemob (环信) IM platform.
+ * Provides webhook-based message receiving and REST API-based message sending.
  */
 
 import type { EasemobAccountConfig, EasemobConfig, EasemobWebhookPayload, OpenClawConfig } from "./types.js";
 import { easemobOnboardingAdapter } from "./onboarding.js";
 import { getAccessToken, probeEasemob } from "./probe.js";
 
+/** Default account ID for single-account mode */
 const DEFAULT_ACCOUNT_ID = "default";
 
+/**
+ * Channel API interface for webhook handling
+ */
+interface ChannelAPI {
+  logger: {
+    info: (msg: string) => void;
+    error: (msg: string) => void;
+  };
+  runtime: {
+    channel: {
+      reply: {
+        finalizeInboundContext: (ctx: InboundContext) => FinalizedContext;
+        dispatchReplyFromConfig: (params: {
+          cfg: OpenClawConfig;
+          ctx: FinalizedContext;
+          dispatcher: ReplyDispatcher;
+        }) => Promise<void>;
+      };
+    };
+  };
+}
+
+/**
+ * Raw inbound context from webhook
+ */
+interface InboundContext {
+  From: string;
+  To: string;
+  Body: string;
+  ChatType: "direct";
+  MessageSid?: string;
+  Surface: string;
+  Provider: string;
+  WasMentioned: boolean;
+  raw: EasemobWebhookPayload;
+}
+
+/**
+ * Finalized context after processing
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FinalizedContext = any;
+
+/**
+ * Reply dispatcher interface
+ */
+interface ReplyDispatcher {
+  sendFinalReply: (payload: { text?: string }) => boolean;
+  sendBlockReply: () => boolean;
+  sendToolResult: () => boolean;
+  waitForIdle: () => Promise<void>;
+  getQueuedCounts: () => { final: number; block: number; tool: number };
+}
+
+/**
+ * Result of handling a webhook
+ */
+interface WebhookResult {
+  handled: boolean;
+  replies: string[];
+}
+
+/** Gets an Easemob account from config by ID or returns the first available */
 function getAccount(
   cfg: OpenClawConfig,
   accountId?: string
@@ -15,14 +82,17 @@ function getAccount(
   const easemobCfg = cfg.channels?.easemob as EasemobConfig | undefined;
   const accounts = easemobCfg?.accounts || {};
 
-  if (accountId && accounts[accountId]) {
-    return accounts[accountId];
+  if (accountId) {
+    // If accountId is specified, only return if it exists
+    return accounts[accountId] ?? null;
   }
 
+  // If no accountId specified, return the first available account
   const firstKey = Object.keys(accounts)[0];
   return firstKey ? accounts[firstKey] : null;
 }
 
+/** Builds a new config path with updated accounts */
 function buildConfigPath(cfg: OpenClawConfig, accounts: Record<string, EasemobAccountConfig>) {
   return {
     ...cfg,
@@ -333,18 +403,25 @@ export const easemobPlugin: any = {
   },
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+/**
+ * Handles incoming Easemob webhook payloads.
+ *
+ * @param payload - The webhook payload from Easemob
+ * @param cfg - OpenClaw configuration
+ * @param api - Channel API for logging and dispatching
+ * @returns Webhook result indicating if message was handled and any replies
+ */
 export async function handleEasemobWebhook(
   payload: EasemobWebhookPayload,
   cfg: OpenClawConfig,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  api: any
-): Promise<{ handled: boolean; replies: string[] }> {
+  api: ChannelAPI
+): Promise<WebhookResult> {
   const eventType = payload.eventType || payload.call_back_type;
   const chatType = payload.chat_type;
   const from = payload.from;
   const to = payload.to;
 
+  // Only handle direct chat messages
   if (chatType !== "chat" && chatType !== "direct") {
     return { handled: false, replies: [] };
   }
@@ -372,11 +449,11 @@ export async function handleEasemobWebhook(
 
   api.logger.info(`Easemob received message from ${from}: ${text}`);
 
-  const rawCtx = {
+  const rawCtx: InboundContext = {
     From: from,
     To: to,
     Body: text,
-    ChatType: "direct" as const,
+    ChatType: "direct",
     MessageSid: payload.msg_id,
     Surface: "easemob",
     Provider: "easemob",

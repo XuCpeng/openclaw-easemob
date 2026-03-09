@@ -1,20 +1,38 @@
 /**
- * Easemob Connection Probe
+ * Easemob Connection Probe and Token Management
+ *
+ * This module handles:
+ * - OAuth2 token acquisition and caching
+ * - Connection health checking
+ * - File upload to Easemob
  */
 
 import type { EasemobAccountConfig, EasemobToken } from "./types.js";
 
+/**
+ * Result of probing an Easemob account connection
+ */
 export type EasemobProbeResult = {
   ok: boolean;
   error?: string;
 };
 
+/** In-memory cache for access tokens, keyed by account identifier */
 const tokenCache = new Map<string, EasemobToken>();
 
+/**
+ * Gets an access token for the given Easemob account.
+ * Returns cached token if valid, otherwise fetches a new one.
+ *
+ * @param account - The Easemob account configuration
+ * @returns The access token string
+ * @throws Error if token acquisition fails
+ */
 export async function getAccessToken(account: EasemobAccountConfig): Promise<string> {
   const cacheKey = `${account.orgName}/${account.appName}/${account.clientId}`;
   const cached = tokenCache.get(cacheKey);
 
+  // Return cached token if it has more than 60 seconds remaining
   if (cached && cached.expires_at > Date.now() + 60000) {
     return cached.access_token;
   }
@@ -51,6 +69,11 @@ export async function getAccessToken(account: EasemobAccountConfig): Promise<str
   return token.access_token;
 }
 
+/**
+ * Clears the token cache for a specific account or all accounts.
+ *
+ * @param account - Optional account to clear cache for. If omitted, clears all cached tokens.
+ */
 export function clearTokenCache(account?: EasemobAccountConfig): void {
   if (account) {
     const cacheKey = `${account.orgName}/${account.appName}/${account.clientId}`;
@@ -60,6 +83,12 @@ export function clearTokenCache(account?: EasemobAccountConfig): void {
   }
 }
 
+/**
+ * Probes the Easemob connection by attempting to get a token and verify the account user exists.
+ *
+ * @param account - The Easemob account configuration to test
+ * @returns Probe result indicating success or failure with error message
+ */
 export async function probeEasemob(account: EasemobAccountConfig): Promise<EasemobProbeResult> {
   try {
     const token = await getAccessToken(account);
@@ -84,6 +113,16 @@ export async function probeEasemob(account: EasemobAccountConfig): Promise<Easem
   }
 }
 
+/**
+ * Uploads a file to Easemob's chat file storage.
+ *
+ * @param account - The Easemob account configuration
+ * @param fileBuffer - The file content as a Buffer
+ * @param filename - The original filename
+ * @param mimeType - The MIME type of the file
+ * @returns Object containing the file UUID and secret for sharing
+ * @throws Error if upload fails
+ */
 export async function uploadFileToEasemob(
   account: EasemobAccountConfig,
   fileBuffer: Buffer,
