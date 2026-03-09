@@ -13,7 +13,7 @@ import type { EasemobAccountConfig } from "../types.js";
 
 // Mock global fetch
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+global.fetch = mockFetch as unknown as typeof fetch;
 
 // Mock Date.now for predictable token expiration tests
 const mockNow = 1000000000000;

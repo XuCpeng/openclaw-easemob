@@ -5,7 +5,7 @@
  * This plugin enables AI agents to communicate through the Easemob (环信) IM platform.
  */
 
-import type { z } from "zod";
+import { z } from "zod";
 
 // Re-export zod for use in other modules
 export { z };

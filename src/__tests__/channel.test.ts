@@ -9,8 +9,7 @@ import type { EasemobWebhookPayload, OpenClawConfig } from "../types.js";
 
 // Mock global fetch
 const mockFetch = vi.fn();
-// @ts-expect-error - global fetch mock
-global.fetch = mockFetch;
+global.fetch = mockFetch as unknown as typeof fetch;
 
 describe("handleEasemobWebhook", () => {
   const mockApi = {
