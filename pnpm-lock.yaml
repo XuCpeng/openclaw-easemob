@@ -11,9 +11,6 @@ importers:
       openclaw:
         specifier: '>=2026.3.0'
         version: 2026.3.8(@napi-rs/canvas@0.1.96)(@types/express@5.0.6)(hono@4.12.5)(node-llama-cpp@3.16.2(typescript@5.9.3))
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
     devDependencies:
       '@eslint/js':
         specifier: ^9.21.0
@@ -39,6 +36,9 @@ importers:
       vitest:
         specifier: ^3.0.7
         version: 3.2.4(@types/node@22.19.15)(jiti@2.6.1)(yaml@2.8.2)
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
 
 packages:
 
