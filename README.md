@@ -7,31 +7,6 @@
 
 ---
 
-## 三步快速开始
-
-```bash
-# 1. 安装插件
-openclaw plugins install @saber3555/openclaw-easemob
-
-# 2. 配置插件（按提示输入环信凭据）
-openclaw config
-
-# 3. 在环信控制台配置 Webhook
-# URL: https://your-gateway-host/webhooks/easemob
-```
-
-完成！用户现在可以通过环信向你的机器人发送消息了。
-
----
-
-## 功能特性
-
-- ✅ **单聊支持** - 与用户进行一对一对话
-- ✅ **Webhook 集成** - 实时接收消息
-- ✅ **Token 自动管理** - 自动获取和缓存访问令牌
-- ✅ **配置向导** - 交互式 CLI 配置
-- ✅ **连接测试** - 自动验证配置正确性
-
 ## 安装
 
 ```bash
@@ -49,13 +24,17 @@ openclaw plugins install @saber3555/openclaw-easemob
     * **Client ID** - 客户端 ID
     * **Client Secret** - 客户端密钥
 
-4. 在「用户认证」中创建一个用户作为机器人账号
+4. 在 「运营管理/运营操作」 创建一个用户作为机器人账号
 
 ### 2. 配置插件
+
 ```bash
-openclaw config
+openclaw channels add
 ```
-按提示输入:
+
+![](./docs/images/image3.png)
+
+选择 Easemob 后，按提示输入:
 
 * OrgName
 * AppName
@@ -64,6 +43,10 @@ openclaw config
 * 机器人用户名
 
 ### 3. 配置 Webhook 回调
+
+![](./docs/images/image1.png)
+![](./docs/images/image2.png)
+
 
 1. 确保 OpenClaw Gateway 可以从公网访问
 2. 登录环信控制台
@@ -141,7 +124,7 @@ openclaw message send --channel easemob --to <user_id> "Hello!"
 openclaw config get channels.easemob
 
 # 重新配置
-openclaw config
+openclaw channels add
 
 # 禁用通道
 openclaw config set channels.easemob.enabled false
@@ -170,6 +153,9 @@ pnpm run build
 
 # 本地安装到 OpenClaw
 openclaw plugins install ./
+
+# 重新安装（自动保留配置）
+./local-reinstall.sh
 
 # 开发模式（自动重编译）
 pnpm run dev
