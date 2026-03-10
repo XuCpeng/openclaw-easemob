@@ -47,9 +47,7 @@
     "url": "https://github.com/XuCpeng/openclaw-easemob/issues"
   },
   "homepage": "https://github.com/XuCpeng/openclaw-easemob#readme",
-  "dependencies": {
-    "zod": "^4.3.6"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@eslint/js": "^9.21.0",
     "@types/node": "^22.13.9",
@@ -58,7 +56,8 @@
     "globals": "^16.0.0",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.26.0",
-    "vitest": "^3.0.7"
+    "vitest": "^3.0.7",
+    "zod": "^4.3.6"
   },
   "peerDependencies": {
     "openclaw": ">=2026.3.0"
