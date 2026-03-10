@@ -39,40 +39,43 @@ openclaw plugins install @saber3555/openclaw-easemob
 ```
 
 ## 快速开始
-
 ### 1. 获取环信凭据
-
 1. 登录 [环信控制台](https://console.easemob.com)
 2. 创建新应用或选择现有应用
 3. 在「应用概览」中获取:
-   - **OrgName** - 组织名称
-   - **AppName** - 应用名称
-   - **Client ID** - 客户端 ID
-   - **Client Secret** - 客户端密钥
+
+    * **OrgName** - 组织名称
+    * **AppName** - 应用名称
+    * **Client ID** - 客户端 ID
+    * **Client Secret** - 客户端密钥
+
 4. 在「用户认证」中创建一个用户作为机器人账号
 
 ### 2. 配置插件
-
 ```bash
 openclaw config
 ```
-
 按提示输入:
-- OrgName
-- AppName
-- Client ID
-- Client Secret
-- 机器人用户名
+
+* OrgName
+* AppName
+* Client ID
+* Client Secret
+* 机器人用户名
 
 ### 3. 配置 Webhook 回调
 
 1. 确保 OpenClaw Gateway 可以从公网访问
 2. 登录环信控制台
 3. 进入「应用设置」→「消息回调」
-4. 添加回调 URL:
-   ```
-   https://your-gateway-host/webhooks/easemob
-   ```
+4. 添加回调 URL:   
+    1. `https://your-gateway-host` 就是访问 OpenClaw Control UI，默认为 127.0.0.1:18789，这里需要能从公网访问。
+    2. 在后面拼接 `/webhooks/easemob`
+
+
+```
+https://your-gateway-host/webhooks/easemob
+```
 5. 选择回调类型: **单聊消息**
 6. 保存配置
 
