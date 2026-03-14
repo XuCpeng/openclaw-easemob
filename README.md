@@ -68,7 +68,7 @@ https://your-gateway-host/webhooks/easemob
 
 ## 配置说明
 
-配置文件位置: `~/.openclaw/config.json`
+配置文件位置: `~/.openclaw/openclaw.json`
 
 ```json
 {
@@ -83,7 +83,8 @@ https://your-gateway-host/webhooks/easemob
           "clientSecret": "your-client-secret",
           "enabled": true,
           "dmPolicy": "pairing",
-          "allowFrom": ["user1", "user2"]
+          "allowFrom": ["user1", "user2"],
+          "showToolCalls": "full"
         }
       }
     }
@@ -104,12 +105,64 @@ https://your-gateway-host/webhooks/easemob
 | `name` | string | ❌ | 显示名称 |
 | `dmPolicy` | string | ❌ | DM 策略: `open`/`pairing`/`allowlist` |
 | `allowFrom` | array | ❌ | 允许列表 |
+| `showToolCalls` | string | ❌ | 是否显示工具调用详情: `"off"`/`"on"`/`"full"` (默认: `"off"`) |
 
 ### DM 策略说明
 
 - **`pairing`** (默认) - 需要用户先与代理配对
 - **`allowlist`** - 只允许列表中的用户发送消息
 - **`open`** - 允许任何用户发送消息（不推荐）
+
+### 工具调用显示 (showToolCalls)
+
+控制是否向用户实时显示 AI 工具调用的详细过程。
+
+| 模式 | 说明 | 示例输出 |
+|------|------|----------|
+| `"off"` (默认) | 只发送最终答案，隐藏所有工具调用过程 | "今天北京天气晴朗，25°C" |
+| `"on"` | 显示工具开始/结束状态 | "正在查询天气..." → 最终答案 |
+| `"full"` | 显示完整工具输出，包括执行结果 | "正在查询天气..." → "API返回: {温度:25,天气:晴}" → 最终答案 |
+
+**配置示例：**
+
+```json
+{
+  "channels": {
+    "easemob": {
+      "accounts": {
+        "robot_username": {
+          "accountId": "robot_username",
+          "orgName": "your-org",
+          "appName": "your-app",
+          "clientId": "your-client-id",
+          "clientSecret": "your-client-secret",
+          "showToolCalls": "full"
+        }
+      }
+    }
+  }
+}
+```
+
+**验证方法：**
+
+1. 配置 `showToolCalls: "full"`
+2. 向机器人发送需要工具调用的消息，如："查询北京天气"
+3. 观察是否收到多条消息：
+   - 工具开始提示（如"正在查询天气..."）
+   - 工具执行结果（如 API 返回的原始数据）
+   - 最终整理后的答案
+
+**实现逻辑：**
+
+插件通过以下机制实现工具调用显示：
+
+1. **Session 级别设置**：根据 `showToolCalls` 配置，自动设置对应 session 的 `verboseLevel` 字段
+2. **Dispatcher 回调**：在 `dispatchReplyFromConfig` 中注册 `sendToolResult` 回调函数
+3. **实时推送**：当 OpenClaw Agent 执行工具时，通过回调将工具状态/结果实时发送给用户
+4. **非阻塞发送**：使用 `void sendMessageToUser()` 异步发送，不影响主流程
+
+核心代码位于 `src/index.ts:180-260`，通过修改 `~/.openclaw/agents/main/sessions/sessions.json` 中的 `verboseLevel` 来控制 OpenClaw 的详细输出级别。
 
 ## 常用命令
 

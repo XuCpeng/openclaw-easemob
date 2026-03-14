@@ -23,6 +23,8 @@ export const EasemobAccountConfigSchema = z.object({
   name: z.string().optional(),
   dmPolicy: z.enum(["open", "pairing", "allowlist"]).optional(),
   allowFrom: z.array(z.union([z.string(), z.number()])).optional(),
+  /** 是否向用户显示工具调用详情: "off"=不显示, "on"=显示工具开始/结束状态, "full"=显示完整工具输出 */
+  showToolCalls: z.enum(["off", "on", "full"]).default("off").optional(),
 });
 
 /**

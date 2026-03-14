@@ -155,6 +155,7 @@ export const easemobPlugin: any = {
         name: { type: "string", description: "显示名称" },
         dmPolicy: { type: "string", enum: ["open", "pairing", "allowlist"] },
         allowFrom: { type: "array", items: { type: "string" } },
+        showToolCalls: { type: "string", enum: ["off", "on", "full"], default: "off", description: "是否向用户显示工具调用详情: off=不显示, on=显示工具状态, full=显示完整输出" },
       },
       required: ["accountId", "orgName", "appName", "clientId", "clientSecret"],
     },
