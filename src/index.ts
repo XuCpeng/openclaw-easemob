@@ -59,7 +59,7 @@ interface PluginAPI {
 
 /** Plugin manifest */
 const plugin = {
-  id: "easemob",
+  id: "openclaw-easemob",
   name: "Easemob",
   description: "Easemob (环信IM) channel plugin for OpenClaw",
   version: "1.0.0",
@@ -72,7 +72,7 @@ const plugin = {
    * @param api - The plugin API provided by OpenClaw
    */
   register(api: PluginAPI): void {
-    api.logger.info("Easemob plugin v1.0.0 loaded");
+    api.logger.info("OpenClaw Easemob plugin v1.0.0 loaded");
 
     // Register webhook endpoint for receiving messages
     api.registerHttpRoute({
@@ -147,12 +147,11 @@ const plugin = {
 
           api.logger.info(`Easemob processing message from ${from}: ${text}`);
 
-          try {
-            // 获取账号配置
-            const account = matchedAccount as EasemobAccountConfig;
-            // showToolCalls: "off" | "on" | "full"，默认 "off"
-            const showToolCalls = account.showToolCalls ?? "off";
-            const verboseLevel = showToolCalls === "off" ? undefined : showToolCalls;
+          // 获取账号配置
+          const account = matchedAccount as EasemobAccountConfig;
+          // showToolCalls: "off" | "on" | "full"，默认 "off"
+          const showToolCalls = account.showToolCalls ?? "off";
+          const verboseLevel = showToolCalls === "off" ? undefined : showToolCalls;
 
             api.logger.info(`[Easemob Debug] Account: ${JSON.stringify({
               accountId: account.accountId,
@@ -227,74 +226,77 @@ const plugin = {
               }
             };
 
-            // 3. 运行 AI 引擎
-            await api.runtime.channel.reply.dispatchReplyFromConfig({
-              cfg,
-              ctx: finalizedCtx,
-              // 自定义分发器
-              dispatcher: {
-                sendFinalReply: (payload: any) => {
-                  fullReplyPayloads.push(payload);
-                  return true;
-                },
-                sendBlockReply: (payload: any) => {
-                  // 累加流式块到结果中
-                  fullReplyPayloads.push(payload);
-                  return true;
-                },
-                sendToolResult: (payload: any) => {
-                  api.logger.info(`[Easemob Debug] sendToolResult called: showToolCalls=${showToolCalls}, hasText=${Boolean(payload.text)}, payloadKeys=${Object.keys(payload).join(",")}`);
-                  if (showToolCalls !== "off" && payload.text) {
-                    // 实时发送工具调用详情给用户
-                    toolResults.push(payload);
-                    api.logger.info(`[Easemob Debug] Sending tool result to user: ${payload.text.substring(0, 100)}...`);
-                    // 异步发送，不阻塞流程
-                    void sendMessageToUser(payload.text);
-                  }
-                  return true;
-                },
-                waitForIdle: async () => {},
-                getQueuedCounts: () => ({ final: fullReplyPayloads.length, block: 0, tool: toolResults.length }),
-              } as any,
-            });
+            // 3. 运行 AI 引擎（异步执行，不阻塞响应）
+            void (async () => {
+              try {
+                await api.runtime.channel.reply.dispatchReplyFromConfig({
+                  cfg,
+                  ctx: finalizedCtx,
+                  // 自定义分发器
+                  dispatcher: {
+                    sendFinalReply: (payload: any) => {
+                      fullReplyPayloads.push(payload);
+                      return true;
+                    },
+                    sendBlockReply: (payload: any) => {
+                      // 累加流式块到结果中
+                      fullReplyPayloads.push(payload);
+                      return true;
+                    },
+                    sendToolResult: (payload: any) => {
+                      api.logger.info(`[Easemob Debug] sendToolResult called: showToolCalls=${showToolCalls}, hasText=${Boolean(payload.text)}, payloadKeys=${Object.keys(payload).join(",")}`);
+                      if (showToolCalls !== "off" && payload.text) {
+                        // 实时发送工具调用详情给用户
+                        toolResults.push(payload);
+                        api.logger.info(`[Easemob Debug] Sending tool result to user: ${payload.text.substring(0, 100)}...`);
+                        // 异步发送，不阻塞流程
+                        void sendMessageToUser(payload.text);
+                      }
+                      return true;
+                    },
+                    waitForIdle: async () => {},
+                    getQueuedCounts: () => ({ final: fullReplyPayloads.length, block: 0, tool: toolResults.length }),
+                  } as any,
+                });
 
-            // 4. 一次性合并发送所有收集到的最终回复
-            const combinedText = fullReplyPayloads
-              .map((p) => p.text)
-              .filter(Boolean)
-              .join("\n\n")
-              .trim();
+                // 4. 一次性合并发送所有收集到的最终回复
+                const combinedText = fullReplyPayloads
+                  .map((p) => p.text)
+                  .filter(Boolean)
+                  .join("\n\n")
+                  .trim();
 
-            if (combinedText) {
-              api.logger.info(`Easemob sending combined reply to ${from}: ${combinedText.substring(0, 100)}...`);
-              await (easemobPlugin as any).outbound.sendText({
-                to: from,
-                text: combinedText,
-                accountId: to,
-                cfg,
-              });
-            }
+                if (combinedText) {
+                  api.logger.info(`Easemob sending combined reply to ${from}: ${combinedText.substring(0, 100)}...`);
+                  await (easemobPlugin as any).outbound.sendText({
+                    to: from,
+                    text: combinedText,
+                    accountId: to,
+                    cfg,
+                  });
+                }
 
-            api.logger.info(`Easemob processing completed. Final replies: ${fullReplyPayloads.length}, Tool results: ${toolResults.length}`);
-          } catch (flowErr) {
-            api.logger.error(
-              `Easemob flow error: ${flowErr instanceof Error ? flowErr.stack : String(flowErr)}`,
-            );
+                api.logger.info(`Easemob processing completed. Final replies: ${fullReplyPayloads.length}, Tool results: ${toolResults.length}`);
+              } catch (flowErr) {
+                api.logger.error(
+                  `Easemob flow error: ${flowErr instanceof Error ? flowErr.stack : String(flowErr)}`,
+                );
+              }
+            })();
+
+            // 立即返回成功响应（不等待 AI 处理完成）
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ status: "ok" }));
+          } catch (err) {
+            api.logger.error(`Easemob webhook error: ${err}`);
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({
+              error: "Internal Server Error",
+              message: err instanceof Error ? err.message : String(err),
+            }));
           }
-
-          // Return success response
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ status: "ok" }));
-        } catch (err) {
-          api.logger.error(`Easemob webhook error: ${err}`);
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({
-            error: "Internal Server Error",
-            message: err instanceof Error ? err.message : String(err),
-          }));
-        }
-      },
-    });
+        },
+      });
 
     // Register the channel plugin
     api.registerChannel({ plugin: easemobPlugin });
